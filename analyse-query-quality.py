@@ -93,19 +93,27 @@ def analyse_queries(exit_queries, whois):
     log.info("%d out of %d resolvers (%.2f%%) use random source port." %
              (has_rand_port, exit_queries_len, has_rand_port_pct))
 
+    print "%d,%d,%d" % (exit_queries_len, has_0x20, has_rand_port)
+
     # Print resolvers that are poorly configured.
 
+    addrs = []
     for record, info in zip(whois.lookupmany([addr for _, addr in lacks_0x20]),
                             lacks_0x20):
         exit_fpr, rslv_addr = info
         log.warning("%s %15s (%30s) lacks 0x20." %
                     (exit_fpr[:8], rslv_addr, record.owner[:30]))
+        addrs.append(rslv_addr)
+    print ",".join(addrs)
 
+    addrs = []
     for record, info in zip(whois.lookupmany([addr for _, addr in lacks_rand]),
                             lacks_rand):
         exit_fpr, rslv_addr = info
         log.warning("%s %15s (%30s) lacks random source port." %
                     (exit_fpr[:8], rslv_addr, record.owner[:30]))
+        addrs.append(rslv_addr)
+    print ",".join(addrs)
 
 
 def matches_fingerprint(dns_label):
