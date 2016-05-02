@@ -104,7 +104,7 @@ func getTotalExitBw(cons *tor.Consensus) uint64 {
 	return total
 }
 
-func analysePcap(filename string) {
+func analysePcap(filename string, useHeuristic bool) {
 
 	handle, err := pcap.Openoffline(filename)
 	if err != nil {
@@ -127,8 +127,11 @@ func analysePcap(filename string) {
 		// one began.  After a certain number of requests, we determine the
 		// inter-request delay.  If it starts to exceed our threshold, we
 		// assume that the scan ended.
-		if (counter > MIN_EXITS) && (pkt.Time.Sub(prevTime) > INTER_REQ_THRESHOLD) {
-			break
+		if useHeuristic {
+			if (counter > MIN_EXITS) && (pkt.Time.Sub(prevTime) > INTER_REQ_THRESHOLD) {
+				log.Println("Aborting processing because heuristic says we're done.")
+				break
+			}
 		}
 
 		// Load the consensus that is the "closest" to the scan in time.
@@ -182,6 +185,7 @@ func main() {
 
 	pcapFile := flag.String("pcap", "", "Pcap file to analyse.")
 	consDir := flag.String("consdir", "", "Directory holding consensuses.")
+	filterPkts := flag.Bool("filter", false, "Filter packets using heuristic.")
 	flag.Parse()
 
 	if *pcapFile == "" {
@@ -193,5 +197,5 @@ func main() {
 	consensusDir = *consDir
 
 	fmt.Println("time,fingerprint,resolver,relay,bandwidth")
-	analysePcap(*pcapFile)
+	analysePcap(*pcapFile, *filterPkts)
 }
