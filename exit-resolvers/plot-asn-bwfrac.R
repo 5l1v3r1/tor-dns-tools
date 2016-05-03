@@ -6,7 +6,7 @@ data <- read.csv(input_file, header=TRUE)
 data$time <- as.POSIXct(paste(data$time), format="%Y-%m-%dT%H:%M:%SZ")
 
 # Subset data, i.e., select every second day.
-# data <- subset(data, as.numeric(format(time, "%d")) %% 2 == 0)
+# data <- subset(data, as.numeric(format(time, "%d")) %% 3 == 0)
 
 # Make date ticks align with grid.  Taken from:
 # <https://stackoverflow.com/questions/9119323/placing-the-grid-along-date-tickmarks>
@@ -26,11 +26,11 @@ plot(x, y,
      pch=1,
      cex=0.5,
      lty=1,
-     ylim=c(0,0.41),
+     ylim=c(0,0.5),
      xlab="Time",
      ylab="Frac. of exit bandwidth",
      xaxt="n",
-     col="#0000AA",
+     col="#399085",
 )
 
 lines(x, data$as3356)
@@ -47,7 +47,7 @@ lines(x, data$as0,
       pch=2,
       lty=2,
       cex=0.5,
-      col="#AA0000")
+      col="#5E399C")
 
 # OVH.
 lines(x, data$as16276,
@@ -55,7 +55,7 @@ lines(x, data$as16276,
       pch=3,
       lty=3,
       cex=0.5,
-      col="#00AA00")
+      col="#A83A49")
 
 my.grid()
 
@@ -63,7 +63,7 @@ legend("topleft",
        c("Google", "Local", "OVH", "Other"),
        lty=c(1, 2, 3, 1),
        pch=c(1, 2, 3, NA),
-       col=c("#0000AA", "#AA0000", "#00AA00", "#000000"),
+       col=c("#399085", "#5E399C", "#A83A49", "#000000"),
        horiz=TRUE,
 )
 
