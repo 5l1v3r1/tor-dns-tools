@@ -31,3 +31,6 @@ Finally, use the provided R script to turn the CSV file into a diagram:
     Rscript asn-bwfrac.csv
 
 Have a look at the new plot, written to asn-bwfrac.pdf.
+
+The file dnsenum.py is an exitmap module that you can use to create your own
+dataset.  However, that also requires running your own DNS server.
