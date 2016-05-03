@@ -33,8 +33,17 @@ import (
 const (
 	HEADER_OFFSET       = 42
 	MIN_EXITS           = 500
-	INTER_REQ_THRESHOLD = time.Second * 10
+	INTER_REQ_THRESHOLD = time.Second * 60
 )
+
+type Statistics struct {
+	NumDuplicates uint64
+	NumExits      uint64
+	NumProcessed  uint64
+	NumNotFound   uint64
+	NumNotExit    uint64
+	NumDNSPkts    uint64
+}
 
 var fpr_pattern, _ = regexp.Compile("^[a-f0-9]{40}$")
 
@@ -92,16 +101,18 @@ func getIpAddr(pkt *pcap.Packet) string {
 	return ""
 }
 
-func getTotalExitBw(cons *tor.Consensus) uint64 {
+func getTotalExitBw(cons *tor.Consensus) (uint64, uint64) {
 
-	total := uint64(0)
+	var exitBw, numExits uint64
+
 	for _, getRelay := range cons.RouterStatuses {
 		relay := getRelay()
 		if relay.Flags.Exit {
-			total += getRelay().Bandwidth
+			exitBw += getRelay().Bandwidth
+			numExits++
 		}
 	}
-	return total
+	return exitBw, numExits
 }
 
 func analysePcap(filename string, useHeuristic bool) {
@@ -114,6 +125,7 @@ func analysePcap(filename string, useHeuristic bool) {
 	var cons *tor.Consensus
 	var prevTime time.Time
 	var totalExitBw uint64
+	stats := new(Statistics)
 	counter := 0
 	req := new(dns.Msg)
 
@@ -134,13 +146,15 @@ func analysePcap(filename string, useHeuristic bool) {
 			}
 		}
 
+		stats.NumDNSPkts++
+
 		// Load the consensus that is the "closest" to the scan in time.
 		if cons == nil {
 			cons, err = loadConsensus(pkt.Time)
 			if err != nil {
 				log.Fatal(err)
 			}
-			totalExitBw = getTotalExitBw(cons)
+			totalExitBw, stats.NumExits = getTotalExitBw(cons)
 		}
 
 		if err := req.Unpack(pkt.Data[HEADER_OFFSET:]); err != nil {
@@ -155,26 +169,38 @@ func analysePcap(filename string, useHeuristic bool) {
 
 		// Ignore duplicates.
 		if _, seen := observed[fpr]; seen {
+			stats.NumDuplicates++
 			continue
 		}
 		observed[fpr] = true
 
 		relay, found := cons.Get(tor.Fingerprint(fpr))
 		if !found {
+			stats.NumNotFound++
 			continue
 		}
 
 		// We are not interested in relays that have a non-empty exit policy,
 		// but no exit flag.
 		if !relay.Flags.Exit {
+			stats.NumNotExit++
 			continue
 		}
 
+		stats.NumProcessed++
 		bwFrac := float64(relay.Bandwidth) / float64(totalExitBw)
 		fmt.Printf("%s,%s,%s,%s,%.5f\n", pkt.Time.UTC().Format(time.RFC3339),
 			fpr, getIpAddr(pkt), relay.Address, bwFrac)
 		prevTime = pkt.Time
 	}
+
+	log.Printf("%d DNS packets processed.", stats.NumDNSPkts)
+	log.Printf("%d relays not found in consensus.", stats.NumNotFound)
+	log.Printf("%d duplicate DNS requests observed.", stats.NumDuplicates)
+	log.Printf("%d relays did not have Exit flag.", stats.NumNotExit)
+	frac := float64(stats.NumProcessed) / float64(stats.NumExits) * 100
+	log.Printf("%d in consensus, %d (%.2f%%) processed.",
+		stats.NumExits, stats.NumProcessed, frac)
 
 	if counter < MIN_EXITS {
 		log.Fatalf("Only %d DNS requests in pcap.", counter)
